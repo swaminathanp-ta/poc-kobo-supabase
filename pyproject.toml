@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bvl-player-registration"
+version = "0.1.0"
+description = "Sync BVL player registrations from KoboToolbox to Supabase"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+]
+
+[project.scripts]
+bvl-setup = "bvl_registration.setup:main"
+bvl-sync  = "bvl_registration.sync:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

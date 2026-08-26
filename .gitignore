@@ -1,0 +1,9 @@
+.env
+.db_password
+.sync_state.json
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+supabase/.temp/
+supabase/.branches/
