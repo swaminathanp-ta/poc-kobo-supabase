@@ -28,8 +28,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Install PostgreSQL 17 client
-        # The runner's bundled pg_dump can be older than Supabase's server, and
-        # pg_dump refuses to dump a newer server. Install a matching version.
+        # pg_dump refuses to dump a server newer than itself, and the runner
+        # ships with PostgreSQL 16 already on PATH at /usr/bin/pg_dump.
+        # Installing 17 is not enough — its binaries land in
+        # /usr/lib/postgresql/17/bin and the older one still wins. So we
+        # prepend that directory to PATH for every later step, then assert
+        # the version rather than trusting it.
         run: |
           sudo install -d /usr/share/postgresql-common/pgdg
           sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
@@ -38,6 +42,16 @@ jobs:
             | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-17
+
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+          VERSION=$(/usr/lib/postgresql/17/bin/pg_dump --version | grep -oE '[0-9]+' | head -1)
+          echo "pg_dump major version: $VERSION"
+          [ "$VERSION" = "17" ] || { echo "::error::Expected pg_dump 17, got $VERSION"; exit 1; }
+
+      - name: Confirm the right pg_dump is on PATH
+        run: |
+          which pg_dump
           pg_dump --version
 
       - name: Dump
