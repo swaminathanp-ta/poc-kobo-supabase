@@ -1,0 +1,67 @@
+name: Sync Kobo to Supabase
+
+# Runs the poller on GitHub's infrastructure instead of someone's laptop.
+# It does three jobs at once:
+#
+#   1. BACKSTOP  — catches submissions the webhook missed (Supabase paused,
+#                  function error, or Kobo exhausting its 3 retries).
+#   2. EDITS     — Kobo does NOT fire its REST Service when a submission is
+#                  EDITED. The nightly full re-sync is the only thing that
+#                  ever brings corrections across.
+#   3. HEARTBEAT — a free Supabase project pauses after 7 days of low
+#                  activity. Regular runs keep it awake.
+#
+# The runner is stateless, so --from-db takes the watermark from Supabase
+# (max kobo_id) instead of the local .sync_state.json, which does not persist.
+#
+# NOTE: if you have moved the script into the package (src/bvl_registration/
+# sync.py), change the two `uv run` lines to `uv run python -m bvl_registration.sync`.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'     # incremental, every 15 minutes
+    - cron: '0 2 * * *'        # full re-sync at 02:00 UTC = 07:30 IST
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'Re-sync every submission, including edited ones'
+        type: boolean
+        default: false
+
+concurrency:
+  group: kobo-sync             # never let two syncs overlap
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Sync
+        env:
+          KOBO_TOKEN: ${{ secrets.KOBO_TOKEN }}
+          KOBO_ASSET_UID: ${{ secrets.KOBO_ASSET_UID }}
+          KOBO_BASE_URL: ${{ vars.KOBO_BASE_URL || 'https://kf.kobotoolbox.org' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ "${{ github.event.schedule }}" = "0 2 * * *" ] || [ "${{ inputs.full }}" = "true" ]; then
+            echo "FULL re-sync — picks up edited submissions"
+            uv run python kobo_to_supabase.py --full
+          else
+            echo "Incremental sync"
+            uv run python kobo_to_supabase.py --from-db
+          fi

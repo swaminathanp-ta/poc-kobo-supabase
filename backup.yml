@@ -1,0 +1,87 @@
+name: Backup Supabase database
+
+# The Supabase free tier takes no automatic backups. This takes one nightly,
+# encrypts it, and keeps it as a workflow artifact — outside the account it
+# is protecting, which is the point.
+#
+# The database is small (~23 MB at 12,000 players), so this runs in seconds.
+#
+# Repository secrets required:
+#   SUPABASE_DB_URL    Supabase Dashboard -> Project Settings -> Database ->
+#                      Connection string -> URI. Use the SESSION POOLER string:
+#                      the direct connection is IPv6-only and GitHub runners
+#                      are IPv4, so the direct one will hang.
+#   BACKUP_PASSPHRASE  Any long random string. You need it to restore, so keep
+#                      it somewhere other than this repository.
+
+on:
+  schedule:
+    - cron: '30 20 * * *'      # 02:00 IST daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install PostgreSQL 17 client
+        # The runner's bundled pg_dump can be older than Supabase's server, and
+        # pg_dump refuses to dump a newer server. Install a matching version.
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          pg_dump --version
+
+      - name: Dump
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          STAMP=$(date -u +%Y%m%d-%H%M)
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          pg_dump "$SUPABASE_DB_URL" \
+            --no-owner --no-privileges --schema=public \
+            --file="bvl-backup-$STAMP.sql"
+          ls -lh "bvl-backup-$STAMP.sql"
+
+      - name: Verify the dump is not empty
+        # A dump that "succeeds" but contains nothing is the failure mode you
+        # only discover on the day you need to restore. Fail loudly instead.
+        run: |
+          grep -q "CREATE TABLE" "bvl-backup-$STAMP.sql" \
+            || { echo "::error::No CREATE TABLE in dump"; exit 1; }
+          COPY_COUNT=$(grep -c "^COPY public" "bvl-backup-$STAMP.sql" || true)
+          echo "tables with data: $COPY_COUNT"
+          [ "$COPY_COUNT" -ge 1 ] \
+            || { echo "::error::Dump contains no table data"; exit 1; }
+
+      - name: Encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          # These are records of minors — never store a plaintext dump.
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+              --passphrase "$BACKUP_PASSPHRASE" \
+              --output "bvl-backup-$STAMP.sql.gpg" \
+              "bvl-backup-$STAMP.sql"
+          rm -f "bvl-backup-$STAMP.sql"
+          ls -lh "bvl-backup-$STAMP.sql.gpg"
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: bvl-backup-${{ env.STAMP }}
+          path: bvl-backup-*.sql.gpg
+          retention-days: 90
+
+# Restore:
+#   gpg --batch --passphrase "$BACKUP_PASSPHRASE" \
+#       --decrypt bvl-backup-YYYYMMDD-HHMM.sql.gpg > restore.sql
+#   psql "$SUPABASE_DB_URL" -f restore.sql
