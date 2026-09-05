@@ -36,14 +36,28 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Refuse to publish a secret key
-        # A service_role / sb_secret_ key in a public web page would expose
-        # every child's record. Fail the build rather than deploy it.
+        # A secret key in a public web page would expose every child's record,
+        # so fail the build rather than deploy it.
+        #
+        # Match key VALUES, not words: an earlier version matched the bare
+        # string "service_role" and tripped on a comment warning people not to
+        # put one here. Patterns:
+        #   sb_secret_XXXX…            the current secret key format
+        #   eyJ….….                    a JWT (the legacy service_role key), which
+        #                              needs its dots to distinguish it from any
+        #                              other base64-looking text
         run: |
-          if grep -rEq 'sb_secret_|service_role|eyJ[A-Za-z0-9_-]{20,}' pwa/; then
-            echo "::error::A secret-looking key is present in pwa/. Only the publishable key belongs here."
+          if grep -rEn 'sb_secret_[A-Za-z0-9_-]{8,}|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.' pwa/; then
+            echo "::error::A secret key value is present in pwa/. Only the publishable key belongs here."
             exit 1
           fi
-          echo "No secret keys found in pwa/"
+          echo "No secret key values found in pwa/"
+
+          # Not fatal — flags a legacy anon JWT, which is publishable but on its
+          # way out, and any stray mention worth a human glance.
+          if grep -rEn 'service_role' pwa/ ; then
+            echo "::warning::The words above are only a mention, not a key value — check they are comments."
+          fi
 
       - name: Warn if config is empty
         run: |
