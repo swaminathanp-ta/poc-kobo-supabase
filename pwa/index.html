@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12284c">
+<title>BVL Registration</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+  :root {
+    --navy: #12284c; --orange: #e8621f;
+    --bg: #f4f6f8; --surface: #fff; --border: #dfe4ea; --field: #fff;
+    --ink: #16202e; --ink-2: #5a6675; --ink-3: #8a94a1;
+    --ok: #1c7c4a; --ok-bg: #e7f5ec;
+    --warn: #8a5a00; --warn-bg: #fdf3e0;
+    --bad: #a8261a; --bad-bg: #fdecea;
+    --tap: 50px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --navy: #0e1a2c; --orange: #ff8b4d;
+      --bg: #0e131a; --surface: #171e28; --border: #2b333f; --field: #1e2733;
+      --ink: #e9eef4; --ink-2: #9aa6b4; --ink-3: #6d7885;
+      --ok: #6ee7a8; --ok-bg: #12301f;
+      --warn: #ffc978; --warn-bg: #32270f;
+      --bad: #ff9c90; --bad-bg: #3a1a16;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  header {
+    background: var(--navy); color: #fff; padding: 14px 16px;
+    padding-top: calc(14px + env(safe-area-inset-top));
+    display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { font-size: 17px; margin: 0; font-weight: 650; flex: 1; }
+  .net { display: flex; align-items: center; gap: 6px; font-size: 12px; opacity: .85; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #7cd992; }
+  .dot.off { background: #f0a26b; }
+  .iconbtn {
+    background: rgba(255,255,255,.14); border: 0; color: #fff; width: 38px; height: 38px;
+    border-radius: 10px; font-size: 18px; cursor: pointer;
+  }
+  main { padding: 14px; max-width: 620px; margin: 0 auto; }
+
+  .strip {
+    display: flex; align-items: center; gap: 12px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;
+  }
+  .strip[data-state="waiting"] { border-color: #f0c48a; background: var(--warn-bg); }
+  .strip[data-state="error"] { border-color: #e9a79e; background: var(--bad-bg); }
+  .strip .n { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 1.2em; }
+  .strip .txt { flex: 1; font-size: 13px; color: var(--ink-2); line-height: 1.35; }
+  button.primary, button.ghost {
+    font: inherit; font-weight: 600; border-radius: 10px; cursor: pointer;
+    min-height: 44px; padding: 0 16px; border: 1px solid transparent;
+  }
+  button.primary { background: var(--orange); color: #fff; }
+  button.primary:disabled { background: var(--border); color: var(--ink-3); cursor: default; }
+  button.ghost { background: transparent; border-color: var(--border); color: var(--ink); }
+
+  .banner {
+    background: var(--warn-bg); border: 1px solid #f0c48a; color: var(--warn);
+    padding: 12px 14px; border-radius: 12px; margin-bottom: 14px; font-size: 14px;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px; margin-bottom: 14px;
+  }
+  .field { margin-bottom: 18px; }
+  .field:last-child { margin-bottom: 0; }
+  label.lab { display: block; font-weight: 600; font-size: 14px; margin-bottom: 7px; }
+  .req { color: var(--orange); }
+  input[type=text], input[type=number], input[type=date], select, textarea {
+    width: 100%; font: inherit; min-height: var(--tap); padding: 10px 12px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    background: var(--field); color: var(--ink); appearance: none;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px rgba(232,98,31,.16);
+  }
+  select:disabled { opacity: .55; }
+  .hint { font-size: 13px; color: var(--ink-2); margin-top: 6px; min-height: 1.2em; }
+  .hint.ok { color: var(--ok); font-weight: 600; }
+  .hint.bad { color: var(--bad); font-weight: 600; }
+  .err { color: var(--bad); font-size: 13px; margin-top: 6px; font-weight: 500; }
+  .field.invalid input, .field.invalid select { border-color: var(--bad); }
+
+  .choices { display: flex; gap: 8px; flex-wrap: wrap; }
+  .choices.two > label { flex: 1 1 0; }
+  .choices label {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    min-height: var(--tap); padding: 8px 14px; border: 1.5px solid var(--border);
+    border-radius: 10px; background: var(--field); font-size: 15px; cursor: pointer; user-select: none;
+  }
+  .choices input { position: absolute; opacity: 0; pointer-events: none; }
+  .choices input:checked + span { font-weight: 650; }
+  .choices label:has(input:checked) {
+    border-color: var(--orange); background: rgba(232,98,31,.10); color: var(--orange);
+  }
+  .choices label:has(input:focus-visible) { box-shadow: 0 0 0 3px rgba(232,98,31,.16); }
+
+  .consent { display: flex; gap: 12px; align-items: flex-start; padding: 14px;
+    border: 1.5px solid var(--border); border-radius: 12px; background: var(--field); cursor: pointer; }
+  .consent input { width: 24px; height: 24px; margin: 2px 0 0; flex: none; accent-color: var(--orange); }
+  .consent span { font-size: 14.5px; line-height: 1.45; }
+
+  .submit { width: 100%; min-height: 56px; font-size: 17px; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 140%);
+    background: var(--ink); color: var(--bg); padding: 13px 18px; border-radius: 12px;
+    font-size: 14.5px; font-weight: 500; max-width: 92vw; text-align: center;
+    transition: transform .28s cubic-bezier(.2,.9,.3,1.2); z-index: 50; box-shadow: 0 8px 28px rgba(0,0,0,.25);
+  }
+  #toast.show { transform: translate(-50%, 0); }
+  #toast.ok { background: var(--ok); color: #fff; }
+  #toast.warn { background: var(--warn); color: #fff; }
+
+  dialog {
+    border: 0; border-radius: 16px; padding: 0; width: min(520px, 94vw);
+    background: var(--surface); color: var(--ink);
+  }
+  dialog::backdrop { background: rgba(0,0,0,.5); }
+  .dlg-head { padding: 16px; border-bottom: 1px solid var(--border); font-weight: 650; }
+  .dlg-body { padding: 16px; max-height: 66vh; overflow-y: auto; }
+  .dlg-foot { padding: 14px 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+  .kv { font-size: 13.5px; color: var(--ink-2); margin: 0 0 14px; }
+  h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em;
+       color: var(--ink-3); margin: 20px 0 8px; }
+  h3:first-child { margin-top: 0; }
+  #queueList { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+  #queueList li { padding: 9px 0; border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  #queueList li.bad strong { color: var(--bad); }
+  #queueList em { color: var(--ink-3); font-size: 12.5px; font-style: normal; margin-left: auto; }
+  #queueList li.bad em { color: var(--bad); }
+  #queueList .muted { color: var(--ink-3); }
+  footer { text-align: center; color: var(--ink-3); font-size: 12px; padding: 6px 0 24px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>BVL Registration</h1>
+  <span class="net"><span class="dot" id="netDot"></span><span id="netLabel">Online</span></span>
+  <button class="iconbtn" id="settingsBtn" aria-label="Settings" title="Settings">&#9881;</button>
+</header>
+
+<main>
+  <div class="banner" id="setupBanner" hidden>
+    Not connected yet. Open <strong>Settings</strong> (&#9881;) and enter the project URL and
+    publishable key. You can still register players — they'll be saved on this phone.
+  </div>
+
+  <div class="strip" id="statusStrip" data-state="clear">
+    <span class="n" id="pendingCount">0</span>
+    <span class="txt"><strong id="pendingLabel">registrations</strong> <span id="pendingDetail">All registrations sent</span></span>
+    <button class="primary" id="syncBtn" disabled>Send now</button>
+  </div>
+
+  <form id="regForm" class="card" novalidate>
+    <div class="field" id="nameField">
+      <label class="lab" for="name">Player's full name <span class="req">*</span></label>
+      <input type="text" id="name" autocomplete="off" autocapitalize="words" enterkeyhint="next">
+      <div class="err"></div>
+    </div>
+
+    <div class="field" id="sexField">
+      <span class="lab">Sex <span class="req">*</span></span>
+      <div class="choices two">
+        <label><input type="radio" name="sex" value="M"><span>Male</span></label>
+        <label><input type="radio" name="sex" value="F"><span>Female</span></label>
+      </div>
+      <div class="err"></div>
+    </div>
+
+    <div class="field" id="dobField">
+      <label class="lab" for="dob">Date of birth <span class="req">*</span></label>
+      <input type="date" id="dob">
+      <div class="hint" id="ageHint"></div>
+      <div class="err"></div>
+    </div>
+
+    <div class="field" id="heightField">
+      <label class="lab" for="height">Height in cm</label>
+      <input type="number" id="height" inputmode="numeric" min="100" max="220" step="1" placeholder="e.g. 165">
+      <div class="err"></div>
+    </div>
+
+    <div class="field" id="districtField">
+      <label class="lab" for="district">District <span class="req">*</span></label>
+      <select id="district"></select>
+      <div class="err"></div>
+    </div>
+
+    <div class="field" id="centreField">
+      <label class="lab" for="centre">Centre <span class="req">*</span></label>
+      <select id="centre" disabled></select>
+      <div class="err"></div>
+    </div>
+
+    <div class="field" id="levelField">
+      <span class="lab">Level played <span class="req">*</span></span>
+      <div class="choices">
+        <label><input type="checkbox" name="level" value="beginner"><span>Beginner</span></label>
+        <label><input type="checkbox" name="level" value="bvl"><span>BVL</span></label>
+        <label><input type="checkbox" name="level" value="district"><span>District</span></label>
+        <label><input type="checkbox" name="level" value="state"><span>State</span></label>
+        <label><input type="checkbox" name="level" value="india"><span>India</span></label>
+      </div>
+      <div class="err"></div>
+    </div>
+
+    <div class="field" id="joiningField">
+      <label class="lab" for="joining">Date joined the centre</label>
+      <input type="date" id="joining">
+      <div class="err"></div>
+    </div>
+
+    <div class="field" id="achievementsField">
+      <label class="lab" for="achievements">Special achievements</label>
+      <input type="text" id="achievements" placeholder="Optional">
+    </div>
+
+    <div class="field" id="consentField">
+      <label class="consent">
+        <input type="checkbox" id="consent">
+        <span>A parent or guardian has agreed to this registration and to BVL keeping these details. <span class="req">*</span></span>
+      </label>
+      <div class="err"></div>
+    </div>
+
+    <button type="submit" class="primary submit">Save registration</button>
+  </form>
+
+  <footer>Works without signal. Saved registrations send themselves when you're online.</footer>
+</main>
+
+<div id="toast"></div>
+
+<dialog id="settings">
+  <form id="settingsForm" method="dialog">
+    <div class="dlg-head">Settings</div>
+    <div class="dlg-body">
+      <h3>Waiting to send</h3>
+      <ul id="queueList"></ul>
+
+      <h3>Storage on this phone</h3>
+      <p class="kv" id="storageStatus"></p>
+      <p class="kv" id="storageUsage"></p>
+      <button type="button" class="ghost" id="exportBtn">Save a backup file</button>
+
+      <h3>Connection</h3>
+      <div class="field">
+        <label class="lab" for="cfgUrl">Supabase project URL</label>
+        <input type="text" id="cfgUrl" placeholder="https://xxxx.supabase.co" autocapitalize="none" spellcheck="false">
+      </div>
+      <div class="field">
+        <label class="lab" for="cfgKey">Publishable key</label>
+        <input type="text" id="cfgKey" placeholder="sb_publishable_…" autocapitalize="none" spellcheck="false">
+        <div class="hint">Safe to share. It can only add registrations — it cannot read any player's record.</div>
+      </div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="ghost" id="closeSettings">Close</button>
+      <button type="submit" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="./config.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>

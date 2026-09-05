@@ -1,0 +1,59 @@
+name: Deploy registration PWA
+
+# Publishes pwa/ to GitHub Pages. That gives you an HTTPS URL, which is not
+# optional: service workers — and therefore offline mode and "Add to Home
+# screen" — only work on HTTPS (or localhost).
+#
+# One-time setup: Settings -> Pages -> Source: "GitHub Actions".
+# Your URL will be https://<user>.github.io/<repo>/
+#
+# Before the first deploy, put your project URL and PUBLISHABLE key in
+# pwa/config.js. Both are safe to commit — row level security is what
+# protects the data, not the secrecy of that key.
+
+on:
+  push:
+    branches: [main]
+    paths: ['pwa/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refuse to publish a secret key
+        # A service_role / sb_secret_ key in a public web page would expose
+        # every child's record. Fail the build rather than deploy it.
+        run: |
+          if grep -rEq 'sb_secret_|service_role|eyJ[A-Za-z0-9_-]{20,}' pwa/; then
+            echo "::error::A secret-looking key is present in pwa/. Only the publishable key belongs here."
+            exit 1
+          fi
+          echo "No secret keys found in pwa/"
+
+      - name: Warn if config is empty
+        run: |
+          if ! grep -q 'sb_publishable_' pwa/config.js; then
+            echo "::warning::pwa/config.js has no publishable key — the app will start in setup mode."
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: pwa
+      - id: deployment
+        uses: actions/deploy-pages@v4
