@@ -129,7 +129,7 @@ async function load() {
     const [centres, players] = await Promise.all([
       fetchAll("centres", "centre_code,centre_name,district", "centre_name"),
       fetchAll("players_clean",
-        "sl_no,player_name,sex,dob,height_cm,joining_date,performance_levels,achievements,centre_name,team,source,submitted_at",
+        "sl_no,player_id,player_name,sex,dob,height_cm,joining_date,performance_levels,achievements,centre_name,team,source,submitted_at",
         "sl_no"),
     ]);
     const byKey = new Map(centres.map((c) => [centreKey(c.centre_name), c]));
@@ -158,7 +158,7 @@ async function load() {
     const missing = /column|does not exist|schema cache/i.test(err.message || "");
     $("stateMsg").hidden = false;
     $("stateMsg").textContent = missing
-      ? "The database is missing columns this dashboard needs. Run migration 20260924000002_players_clean_pwa.sql, then refresh."
+      ? "The database is missing columns this dashboard needs. Run the latest migrations in supabase/migrations/ (20260924000002 and 20260924000006), then refresh."
       : `Could not load registrations: ${err.message || err}`;
   } finally {
     $("loading").hidden = true;
@@ -509,7 +509,7 @@ const hideTip = () => $("tip").classList.remove("show");
 /* ------------------------------------------------------------ players table */
 
 const PLAYER_COLS = [
-  ["sl_no", "#", "num"], ["player_name", "Name"], ["sex", "Sex"], ["age", "Age", "num"],
+  ["player_id", "Player ID"], ["player_name", "Name"], ["sex", "Sex"], ["age", "Age", "num"],
   ["group", "Team"], ["centre", "Centre"], ["district", "District"], ["performance_levels", "Level"],
   ["joining_date", "Joined"], ["source", "Source"],
 ];
@@ -517,7 +517,7 @@ const PLAYER_COLS = [
 function playerRows() {
   const q = state.search.trim().toLowerCase();
   let rows = q
-    ? state.filtered.filter((p) => `${p.player_name} ${p.centre} ${p.district} ${p.achievements || ""}`.toLowerCase().includes(q))
+    ? state.filtered.filter((p) => `${p.player_id} ${p.player_name} ${p.centre} ${p.district} ${p.achievements || ""}`.toLowerCase().includes(q))
     : state.filtered.slice();
   const { key, dir } = state.sort;
   rows.sort((a, b) => {
@@ -536,7 +536,7 @@ function renderPlayers() {
   $("playersTable").innerHTML = `
     <thead><tr>${PLAYER_COLS.map(([k, l, c]) => `<th data-sort="${k}" class="${c || ""}">${l}${arrow(k)}</th>`).join("")}</tr></thead>
     <tbody>${slice.map((p) => `<tr>
-      <td class="num">${p.sl_no}</td>
+      <td class="pid">${esc(p.player_id)}</td>
       <td>${esc(p.player_name)}</td>
       <td>${p.sex === "M" ? "Boy" : p.sex === "F" ? "Girl" : esc(p.sex)}</td>
       <td class="num">${p.age ?? ""}</td>
@@ -562,7 +562,7 @@ function renderPlayers() {
 
 function exportCsv() {
   const rows = playerRows();
-  const cols = ["sl_no", "player_name", "sex", "dob", "age", "team", "centre", "district", "performance_levels",
+  const cols = ["player_id", "sl_no", "player_name", "sex", "dob", "age", "team", "centre", "district", "performance_levels",
     "height_cm", "joining_date", "achievements", "source", "submitted_at"];
   const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const csv = [cols.join(","), ...rows.map((p) => cols.map((c) => cell(p[c])).join(","))].join("\r\n");
