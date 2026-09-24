@@ -16,6 +16,28 @@ that touches `pwa/` then redeploys it. See [pwa/README.md](pwa/README.md).
 
 The workflow refuses to publish if `pwa/config.js` contains a secret key.
 
+### The admin dashboard
+
+Deployed with the app at `https://<user>.github.io/<repo>/admin/`. It uses the
+same publishable key; admins sign in, and the database only shows player
+records to accounts listed in the `admins` table
+(`supabase/migrations/20260924000003_admin_access.sql`).
+
+To add an admin:
+
+1. Supabase dashboard → **Authentication → Users → Add user** (email + password,
+   tick *Auto confirm*).
+2. SQL Editor:
+   ```sql
+   insert into admins (user_id, email)
+   select id, email from auth.users where email = 'them@example.org';
+   ```
+
+Turn off **Authentication → Sign In / Providers → Allow new users to sign up**.
+Signing up would not grant access anyway, but there is no reason to allow it.
+
+To remove an admin: `delete from admins where email = 'them@example.org';`
+
 ---
 
 ## 2. Backups

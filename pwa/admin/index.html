@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12284c">
+<meta name="robots" content="noindex">
+<title>BVL Admin</title>
+<link rel="icon" href="../bvl-logo.png">
+<style>
+  :root {
+    --navy: #12284c; --navy-2: #1c3a6b; --gold: #f4b41a; --orange: #e8621f;
+    --bg: #f4f6f8; --surface: #ffffff; --border: #dfe4ea; --field: #fff;
+    --ink: #16202e; --ink-2: #5a6675; --ink-3: #7c8794;
+    --grid: #e6e9ee; --axis: #c9d0d8;
+    --series-1: #2a78d6; --series-2: #eb6834;
+    --ok: #1c7c4a; --bad: #a8261a; --bad-bg: #fdecea;
+    --shadow: 0 1px 2px rgba(16,32,48,.05), 0 4px 16px rgba(16,32,48,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --navy: #0e1a2c; --navy-2: #16294a;
+      --bg: #0e131a; --surface: #171e28; --border: #2b333f; --field: #1e2733;
+      --ink: #e9eef4; --ink-2: #a3aebb; --ink-3: #7d8894;
+      --grid: #242c37; --axis: #39424f;
+      --series-1: #3987e5; --series-2: #d95926;
+      --ok: #6ee7a8; --bad: #ff9c90; --bad-bg: #3a1a16;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  [hidden] { display: none !important; }
+  button, input, select { font: inherit; color: inherit; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; }
+
+  /* ---------- sign-in ---------- */
+  #login {
+    min-height: 100vh; display: grid; place-items: center; padding: 24px 16px;
+    background: radial-gradient(1200px 600px at 20% -10%, var(--navy-2), var(--navy));
+  }
+  .login-card {
+    width: min(400px, 100%); background: var(--surface); border-radius: 18px;
+    padding: 32px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  }
+  .login-card img { display: block; width: 120px; margin: 0 auto 14px; }
+  .login-card h1 { font-size: 20px; text-align: center; margin: 0 0 4px; }
+  .login-card p.sub { text-align: center; color: var(--ink-2); margin: 0 0 24px; font-size: 14px; }
+  .login-card label { display: block; font-weight: 600; font-size: 13px; margin: 0 0 6px; }
+  .login-card input {
+    width: 100%; min-height: 46px; padding: 10px 12px; margin-bottom: 16px;
+    border: 1.5px solid var(--border); border-radius: 10px; background: var(--field);
+  }
+  .login-card input:focus, .filters select:focus, .filters input:focus {
+    outline: none; border-color: var(--series-1); box-shadow: 0 0 0 3px rgba(42,120,214,.18);
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 40px; padding: 0 16px; border-radius: 10px; cursor: pointer;
+    font-weight: 600; border: 1px solid transparent; text-decoration: none;
+  }
+  .btn.primary { background: var(--navy); color: #fff; width: 100%; min-height: 48px; }
+  @media (prefers-color-scheme: dark) { .btn.primary { background: var(--series-1); } }
+  .btn.primary:disabled { opacity: .6; cursor: default; }
+  .btn.ghost { background: transparent; border-color: var(--border); color: var(--ink); }
+  .btn.light { background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.2); }
+  .msg { font-size: 14px; margin-top: 14px; padding: 10px 12px; border-radius: 10px;
+         background: var(--bad-bg); color: var(--bad); }
+
+  /* ---------- header ---------- */
+  .ribbon { background: #0a1730; color: #cfd8e6; font-size: 12px; }
+  .ribbon .wrap { display: flex; gap: 14px; align-items: center; min-height: 32px; flex-wrap: wrap; }
+  .ribbon strong { color: #fff; letter-spacing: .02em; }
+  .ribbon .tag { color: var(--gold); }
+  header.top { background: var(--surface); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 20; }
+  header.top .wrap { display: flex; align-items: center; gap: 14px; min-height: 68px; flex-wrap: wrap; padding-block: 8px; }
+  header.top img { height: 44px; }
+  .brand { flex: 1; min-width: 200px; }
+  .brand b { display: block; font-size: 17px; letter-spacing: .01em; color: var(--ink); }
+  .brand span { font-size: 12.5px; color: var(--ink-2); }
+  .who { font-size: 13px; color: var(--ink-2); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .who .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); display: inline-block; margin-right: 4px; }
+
+  /* ---------- hero ---------- */
+  .hero {
+    margin: 22px 0; border-radius: 20px; color: #fff; padding: 30px 32px;
+    background:
+      radial-gradient(600px 300px at 90% 0%, rgba(244,180,26,.22), transparent 70%),
+      linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%);
+    display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center;
+  }
+  .hero .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chip { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+    background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); }
+  .chip.gold { color: var(--gold); border-color: rgba(244,180,26,.45); }
+  .hero h2 { font-size: clamp(22px, 3vw, 30px); margin: 0 0 6px; line-height: 1.2; }
+  .hero p { margin: 0; color: #c9d3e2; max-width: 640px; }
+  .hero-fig { text-align: right; }
+  .hero-fig .n { font-size: 56px; font-weight: 700; line-height: 1; }
+  .hero-fig .l { color: #c9d3e2; font-size: 13px; margin-top: 6px; }
+  .hero img { width: 150px; opacity: .95; }
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: 1fr; padding: 24px 20px; }
+    .hero-fig { text-align: left; }
+  }
+
+  /* ---------- filters + tabs ---------- */
+  .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .filters select, .filters input {
+    min-height: 40px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface); min-width: 0;
+  }
+  .filters input { flex: 1 1 220px; }
+  .filters .count { font-size: 13px; color: var(--ink-2); margin-left: auto; }
+  .tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 5px; margin-bottom: 18px; overflow-x: auto; }
+  .tabs button { border: 0; background: transparent; padding: 9px 16px; border-radius: 10px;
+    font-weight: 600; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+  .tabs button[aria-selected="true"] { background: var(--navy); color: #fff; }
+  @media (prefers-color-scheme: dark) { .tabs button[aria-selected="true"] { background: var(--series-1); } }
+  .tabs .badge { font-size: 11px; background: var(--gold); color: #1a1a1a; border-radius: 999px;
+    padding: 1px 7px; margin-left: 6px; }
+
+  /* ---------- tiles ---------- */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 18px; box-shadow: var(--shadow); display: flex; gap: 14px; align-items: flex-start; }
+  .tile .ic { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; flex: none;
+    color: var(--ic); background: color-mix(in srgb, var(--ic) 13%, transparent); }
+  .tile .lab { font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); }
+  .tile .val { font-size: 30px; font-weight: 700; line-height: 1.15; margin: 4px 0 2px; }
+  .tile .sub { font-size: 12.5px; color: var(--ink-3); }
+
+  /* ---------- chart cards ---------- */
+  .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; margin-bottom: 24px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 18px 18px 14px; box-shadow: var(--shadow); min-width: 0; grid-column: span 6; }
+  .card.wide { grid-column: span 12; }
+  .card.third { grid-column: span 4; }
+  @media (max-width: 900px) { .card, .card.third { grid-column: span 12; } }
+  .card-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+  .card-head h3 { margin: 0; font-size: 15px; }
+  .card-head p { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-2); }
+  .card-head .grow { flex: 1; }
+  .linkbtn { background: none; border: 0; color: var(--ink-2); font-size: 12.5px; cursor: pointer;
+    text-decoration: underline; text-underline-offset: 3px; padding: 2px; }
+  .legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--ink-2); margin-bottom: 6px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .chart { position: relative; }
+  .chart svg { display: block; width: 100%; overflow: visible; }
+  .chart .axis-text { fill: var(--ink-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .chart .gridline { stroke: var(--grid); stroke-width: 1; }
+  .chart .baseline { stroke: var(--axis); stroke-width: 1; }
+  .chart .hit { fill: transparent; cursor: default; }
+  .chart .col:hover .mark, .chart .col:focus .mark { filter: brightness(1.12); }
+  .chart .col:focus { outline: none; }
+  .chart .col:focus .hit { stroke: var(--ink-3); stroke-width: 1; }
+
+  .hbars { display: grid; grid-template-columns: minmax(90px, max-content) 1fr auto; gap: 7px 12px; align-items: center; }
+  .hbars .name { font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+  .hbars .track { position: relative; height: 22px; display: flex; align-items: center; }
+  .hbars .bar { height: 16px; background: var(--series-1); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .hbars .v { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
+  .hbars .track:hover .bar, .hbars .track:focus .bar { filter: brightness(1.12); }
+  .hbars .track:focus { outline: none; }
+  .hbars .bar.muted { background: var(--axis); }
+
+  #tip {
+    position: fixed; pointer-events: none; z-index: 60; background: var(--surface); color: var(--ink);
+    border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 12.5px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.18); min-width: 120px; opacity: 0; transition: opacity .1s;
+  }
+  #tip.show { opacity: 1; }
+  #tip .t { color: var(--ink-2); margin-bottom: 4px; }
+  #tip .r { display: flex; align-items: center; gap: 8px; }
+  #tip .r b { font-variant-numeric: tabular-nums; }
+  #tip .r i { width: 12px; height: 2px; display: inline-block; }
+
+  /* ---------- tables ---------- */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); font-weight: 600; }
+  th[data-sort] { cursor: pointer; user-select: none; }
+  th[data-sort]:hover { color: var(--ink); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:hover { background: color-mix(in srgb, var(--series-1) 5%, transparent); }
+  .pill { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--ink-2); }
+  .pager { display: flex; gap: 10px; align-items: center; justify-content: flex-end; padding-top: 12px; font-size: 13px; color: var(--ink-2); }
+
+  .loading { padding: 60px 0; text-align: center; color: var(--ink-2); }
+  .state-msg { background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 24px; margin: 22px 0; }
+  footer { text-align: center; color: var(--ink-3); font-size: 12px; padding: 10px 0 30px; }
+</style>
+</head>
+<body>
+
+<!-- ======================= sign in ======================= -->
+<section id="login" hidden>
+  <form class="login-card" id="loginForm" novalidate>
+    <img src="../bvl-logo.png" alt="Brahmaputra Volleyball League">
+    <h1>BVL Admin</h1>
+    <p class="sub">Registration dashboard · authorised staff only</p>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button class="btn primary" id="loginBtn" type="submit">Sign in</button>
+    <div class="msg" id="loginMsg" hidden></div>
+  </form>
+</section>
+
+<!-- ======================= dashboard ======================= -->
+<section id="app" hidden>
+  <div class="ribbon"><div class="wrap">
+    <strong>BRAHMAPUTRA VOLLEYBALL LEAGUE</strong>
+    <span class="tag">Assam Volleyball Mission 100</span>
+    <span>Registration admin</span>
+  </div></div>
+
+  <header class="top"><div class="wrap">
+    <img src="../bvl-logo.png" alt="">
+    <div class="brand">
+      <b>Brahmaputra Volleyball League</b>
+      <span>Player registry · grassroots registration dashboard</span>
+    </div>
+    <div class="who">
+      <span><span class="dot"></span><span id="whoEmail"></span></span>
+      <a class="btn ghost" href="../">Registration app</a>
+      <button class="btn ghost" id="refreshBtn" type="button">Refresh</button>
+      <button class="btn ghost" id="logoutBtn" type="button">Sign out</button>
+    </div>
+  </div></header>
+
+  <main class="wrap">
+    <div class="state-msg" id="stateMsg" hidden></div>
+
+    <div id="loading" class="loading">Loading registrations…</div>
+
+    <div id="content" hidden>
+      <section class="hero">
+        <div>
+          <div class="chips">
+            <span class="chip gold">Mission 100</span>
+            <span class="chip" id="chipDistricts"></span>
+            <span class="chip" id="chipCentres"></span>
+            <span class="chip" id="chipUpdated"></span>
+          </div>
+          <h2>Player registry</h2>
+          <p>Every registered player across BVL village centres — from the historical ledgers and
+            the field registration app. Use the filters to focus on a district, centre or team.</p>
+        </div>
+        <div class="hero-fig">
+          <div class="n" id="heroN">0</div>
+          <div class="l" id="heroL">registered players</div>
+        </div>
+      </section>
+
+      <div class="filters" role="group" aria-label="Filters">
+        <select id="fDistrict" aria-label="District"></select>
+        <select id="fCentre" aria-label="Centre"></select>
+        <select id="fSex" aria-label="Sex">
+          <option value="">Boys and girls</option>
+          <option value="M">Boys</option>
+          <option value="F">Girls</option>
+        </select>
+        <select id="fTeam" aria-label="Team"></select>
+        <button class="btn ghost" id="fClear" type="button">Clear</button>
+        <span class="count" id="fCount"></span>
+      </div>
+
+      <nav class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="overview">Overview</button>
+        <button role="tab" aria-selected="false" data-tab="players">Players <span class="badge" id="badgePlayers"></span></button>
+        <button role="tab" aria-selected="false" data-tab="centres">Centres <span class="badge" id="badgeCentres"></span></button>
+      </nav>
+
+      <!-- Overview -->
+      <div data-panel="overview">
+        <div class="tiles" id="tiles"></div>
+        <div class="grid">
+          <div class="card wide" id="cardAge"></div>
+          <div class="card" id="cardTeam"></div>
+          <div class="card" id="cardLevel"></div>
+          <div class="card" id="cardDistrict"></div>
+          <div class="card" id="cardJoined"></div>
+        </div>
+      </div>
+
+      <!-- Players -->
+      <div data-panel="players" hidden>
+        <div class="card wide">
+          <div class="filters">
+            <input id="search" type="search" placeholder="Search name, centre or achievement…" aria-label="Search players">
+            <button class="btn ghost" id="exportBtn" type="button">Export CSV</button>
+          </div>
+          <div class="table-wrap"><table id="playersTable"></table></div>
+          <div class="pager" id="pager"></div>
+        </div>
+      </div>
+
+      <!-- Centres -->
+      <div data-panel="centres" hidden>
+        <div class="card wide">
+          <div class="table-wrap"><table id="centresTable"></table></div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer>Brahmaputra Volleyball League · Assam Volleyball Mission 100 · Records of minors — do not share exports.</footer>
+</section>
+
+<div id="tip" role="tooltip"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js"></script>
+<script src="../config.js"></script>
+<script src="./admin.js"></script>
+</body>
+</html>

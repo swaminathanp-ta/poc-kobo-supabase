@@ -17,6 +17,7 @@ const SHELL = [
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
+  "./bvl-logo.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -44,6 +45,8 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   // Never intercept API traffic — a cached registration response would be a lie.
   if (url.origin !== self.location.origin) return;
+  // The admin dashboard is online-only; caching it would serve stale code.
+  if (url.pathname.includes("/admin/")) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {

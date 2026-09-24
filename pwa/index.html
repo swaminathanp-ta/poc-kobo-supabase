@@ -40,7 +40,9 @@
     display: flex; align-items: center; gap: 10px;
     position: sticky; top: 0; z-index: 10;
   }
-  header h1 { font-size: 17px; margin: 0; font-weight: 650; flex: 1; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 650; flex: 1; line-height: 1.2; }
+  header h1 small { display: block; font-size: 11.5px; font-weight: 500; opacity: .75; }
+  .logo { height: 40px; background: #fff; border-radius: 8px; padding: 3px 5px; flex: none; }
   .net { display: flex; align-items: center; gap: 6px; font-size: 12px; opacity: .85; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #7cd992; }
   .dot.off { background: #f0a26b; }
@@ -150,7 +152,8 @@
 <body>
 
 <header>
-  <h1>BVL Registration</h1>
+  <img class="logo" src="./bvl-logo.png" alt="Brahmaputra Volleyball League">
+  <h1>BVL Registration<small>Brahmaputra Volleyball League</small></h1>
   <span class="net"><span class="dot" id="netDot"></span><span id="netLabel">Online</span></span>
   <button class="iconbtn" id="settingsBtn" aria-label="Settings" title="Settings">&#9881;</button>
 </header>

@@ -18,6 +18,7 @@ and — critically — a **centre chosen from the real registry of 141 BVL centr
 | File | Purpose |
 |---|---|
 | `pwa/` | The registration app — see [pwa/README.md](pwa/README.md) |
+| `pwa/admin/` | Admin dashboard (sign-in, charts, player and centre tables) — see [DEPLOYMENT.md](DEPLOYMENT.md#the-admin-dashboard) |
 | `supabase/migrations/*.sql` | Versioned schema, centre seed and PWA policies |
 | `supabase/sql/*.sql` | Standalone SQL copies for the dashboard SQL Editor |
 | `tools/setup_supabase.py` | One-time Supabase bootstrap via the Management API |
