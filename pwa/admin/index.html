@@ -111,11 +111,11 @@
 
   /* ---------- filters + tabs ---------- */
   .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-  .filters select, .filters input {
+  .filters select, .filters input[type=search] {
     min-height: 40px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 10px;
     background: var(--surface); min-width: 0;
   }
-  .filters input { flex: 1 1 220px; }
+  .filters input[type=search] { flex: 1 1 220px; }
   .filters .count { font-size: 13px; color: var(--ink-2); margin-left: auto; }
   .tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border);
     border-radius: 14px; padding: 5px; margin-bottom: 18px; overflow-x: auto; }
@@ -191,6 +191,8 @@
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   tbody tr:hover { background: color-mix(in srgb, var(--series-1) 5%, transparent); }
   .pill { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--ink-2); }
+  .check { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-2); cursor: pointer; }
+  .check input { width: 18px; height: 18px; accent-color: var(--series-1); }
   .pager { display: flex; gap: 10px; align-items: center; justify-content: flex-end; padding-top: 12px; font-size: 13px; color: var(--ink-2); }
 
   .loading { padding: 60px 0; text-align: center; color: var(--ink-2); }
@@ -308,6 +310,9 @@
       <!-- Centres -->
       <div data-panel="centres" hidden>
         <div class="card wide">
+          <div class="filters">
+            <label class="check"><input type="checkbox" id="showEmpty"> Show centres with no players <span id="emptyCount"></span></label>
+          </div>
           <div class="table-wrap"><table id="centresTable"></table></div>
         </div>
       </div>

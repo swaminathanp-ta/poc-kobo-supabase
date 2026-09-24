@@ -169,7 +169,9 @@ async function load() {
 /* ------------------------------------------------------------ filters */
 
 function buildFilters() {
-  const districts = [...new Set(state.players.map((p) => p.district).concat(state.centres.map((c) => c.district)))].sort();
+  // Only districts and centres that have players: picking an empty one would
+  // just blank the dashboard. Empty centres are listed in the Centres tab.
+  const districts = [...new Set(state.players.map((p) => p.district))].sort();
   const keep = $("fDistrict").value;
   $("fDistrict").innerHTML = '<option value="">All districts</option>' +
     districts.map((d) => `<option>${esc(d)}</option>`).join("");
@@ -184,7 +186,6 @@ function buildFilters() {
 function buildCentreFilter() {
   const district = $("fDistrict").value;
   const names = new Set();
-  state.centres.forEach((c) => { if (!district || c.district === district) names.add(c.centre_name); });
   state.players.forEach((p) => { if (!district || p.district === district) names.add(p.centre); });
   const keep = $("fCentre").value;
   const list = [...names].sort();
@@ -590,8 +591,11 @@ function renderCentres() {
     if (p.joining_date && p.joining_date > r.last) r.last = p.joining_date;
   });
   const { key, dir } = state.centreSort;
-  const rows = [...map.values()]
-    .filter((r) => (!d || r.district === d) && (!c || r.name === c))
+  const inView = [...map.values()].filter((r) => (!d || r.district === d) && (!c || r.name === c));
+  const empty = inView.filter((r) => !r.players).length;
+  $("emptyCount").textContent = `(${fmt(empty)})`;
+  const rows = inView
+    .filter((r) => $("showEmpty").checked || r.players)
     .sort((a, b) => (typeof a[key] === "number" ? a[key] - b[key] : String(a[key]).localeCompare(String(b[key]))) * dir);
   const cols = [["name", "Centre"], ["district", "District"], ["players", "Players", "num"], ["boys", "Boys", "num"],
     ["girls", "Girls", "num"], ["u12", "Under 12", "num"], ["u16", "Under 16", "num"], ["last", "Latest joiner"]];
@@ -633,6 +637,7 @@ async function boot() {
   });
   $("search").addEventListener("input", (e) => { state.search = e.target.value; state.page = 0; renderPlayers(); });
   $("exportBtn").addEventListener("click", exportCsv);
+  $("showEmpty").addEventListener("change", renderCentres);
   document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => selectTab(b.dataset.tab)));
   let resizeTimer;
   window.addEventListener("resize", () => {
