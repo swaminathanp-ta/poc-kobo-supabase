@@ -20,9 +20,9 @@ then either export it or let this script prompt you for it:
 ------------------------------------------------------------------------------
 USAGE
 ------------------------------------------------------------------------------
-    uv run python tools/setup_supabase.py --list                    # show orgs and projects
-    uv run python tools/setup_supabase.py --new "BVL Registration"  # create + set up
-    uv run python tools/setup_supabase.py --link <project-ref>      # use an existing project
+    python setup_supabase.py --list                    # show orgs and projects
+    python setup_supabase.py --new "BVL Registration"  # create + set up
+    python setup_supabase.py --link <project-ref>      # use an existing project
 
 --link is also how you re-apply migrations after editing them, or regenerate
 a lost .env — it is safe to run repeatedly.
@@ -47,12 +47,27 @@ import requests
 
 API_ROOT = "https://api.supabase.com/v1"
 DEFAULT_REGION = "ap-south-1"          # Mumbai — closest to Assam
-PROJECT_DIR = Path(__file__).resolve().parents[1]
+PROVISION_TIMEOUT = 300                # seconds to wait for a new database
+
+
+def find_project_root() -> Path:
+    """Locate the project root by walking up from this file.
+
+    This script may live at the repo root or under tools/, so paths must not
+    be relative to __file__'s own directory. We anchor on pyproject.toml (or
+    the migrations folder) instead, which makes the layout free to change.
+    """
+    for candidate in [Path.cwd(), *Path(__file__).resolve().parents]:
+        for marker in ("pyproject.toml", "supabase/migrations"):
+            if (candidate / marker).exists():
+                return candidate
+    return Path(__file__).resolve().parent
+
+
+PROJECT_DIR = find_project_root()
 MIGRATIONS_DIR = PROJECT_DIR / "supabase" / "migrations"
 ENV_FILE = PROJECT_DIR / ".env"
 PASSWORD_FILE = PROJECT_DIR / ".db_password"
-
-PROVISION_TIMEOUT = 300                # seconds to wait for a new database
 
 
 # ==========================================================================
@@ -87,12 +102,27 @@ class Supabase:
             {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
         )
 
-    def _request(self, method: str, path: str, **kwargs):
+    def _request(self, method: str, path: str, soft: bool = False, **kwargs):
+        """Call the Management API.
+
+        soft=True is for calls we'd like but can live without — a scoped
+        access token may be refused (403) on some endpoints while still
+        being able to do the work that matters. Those return None instead
+        of ending the run.
+        """
         response = self.session.request(method, f"{API_ROOT}{path}", timeout=60, **kwargs)
         if response.status_code == 401:
+            if soft:
+                return None
             fail("Access token rejected (401). Generate a new one at\n"
                  "       https://supabase.com/dashboard/account/tokens")
+        if response.status_code == 403 and not soft:
+            fail(f"{method} {path} returned 403 — this token lacks the privileges for that\n"
+                 "       endpoint. If you created a scoped token, generate a full-access one at\n"
+                 "       https://supabase.com/dashboard/account/tokens")
         if response.status_code >= 400:
+            if soft:
+                return None
             fail(f"{method} {path} returned {response.status_code}:\n       {response.text[:400]}")
         return response.json() if response.content else None
 
@@ -128,9 +158,20 @@ class Supabase:
             fail(f"Could not create project ({response.status_code}):\n       {response.text[:400]}")
         return response.json()
 
-    def get_project(self, ref: str) -> dict:
+    def get_project(self, ref: str, soft: bool = False) -> dict | None:
         """GET /v1/projects/{ref}"""
-        return self._request("GET", f"/projects/{ref}")
+        return self._request("GET", f"/projects/{ref}", soft=soft)
+
+    def find_project(self, ref: str) -> dict | None:
+        """The same information, via the list endpoint.
+
+        Some tokens can list projects but not read one directly, so this is
+        the fallback when GET /projects/{ref} is refused.
+        """
+        for project in self.list_projects() or []:
+            if project.get("id") == ref or project.get("ref") == ref:
+                return project
+        return None
 
     # -- keys --------------------------------------------------------------
     def get_api_keys(self, ref: str) -> list[dict]:
@@ -153,15 +194,53 @@ class Supabase:
 # ==========================================================================
 # Workflow steps
 # ==========================================================================
+def read_env_file() -> dict[str, str]:
+    """Parse .env into a dict. Returns {} if the file does not exist."""
+    values: dict[str, str] = {}
+    if ENV_FILE.exists():
+        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                values[key.strip()] = value.strip().strip('"').strip("'")
+    return values
+
+
+def save_token_to_env(token: str) -> None:
+    """Append the access token to .env so future runs don't prompt."""
+    existing = read_env_file()
+    if existing.get("SUPABASE_ACCESS_TOKEN"):
+        return
+    with ENV_FILE.open("a", encoding="utf-8") as handle:
+        if ENV_FILE.stat().st_size > 0:
+            handle.write("\n")
+        handle.write("# Account-level token for the Management API (setup only).\n")
+        handle.write(f"SUPABASE_ACCESS_TOKEN={token}\n")
+    try:
+        ENV_FILE.chmod(0o600)
+    except OSError:
+        pass
+    info(f"token saved to {ENV_FILE.name} — future runs won't ask")
+
+
 def get_access_token() -> str:
+    """Resolve the token from, in order: environment, .env, interactive prompt."""
     token = os.environ.get("SUPABASE_ACCESS_TOKEN")
     if token:
         return token.strip()
-    print("\nNo SUPABASE_ACCESS_TOKEN found in the environment.")
+
+    token = read_env_file().get("SUPABASE_ACCESS_TOKEN")
+    if token:
+        info(f"using SUPABASE_ACCESS_TOKEN from {ENV_FILE.name}")
+        return token
+
+    print("\nNo SUPABASE_ACCESS_TOKEN found in the environment or .env")
     print("Create one at: https://supabase.com/dashboard/account/tokens")
     token = getpass.getpass("Paste your Personal Access Token (hidden): ").strip()
     if not token:
         fail("No token supplied.")
+    if input(f"Save it to {ENV_FILE.name} so this stops asking? [Y/n] ").strip().lower() in ("", "y", "yes"):
+        save_token_to_env(token)
     return token
 
 
@@ -189,13 +268,41 @@ def choose_organization(client: Supabase) -> str:
         print("  Not a valid choice.")
 
 
+def resolve_project_ref(client: Supabase, value: str) -> str:
+    """Accept either a project reference id or a project name.
+
+    Refs are 20-character lowercase strings; anything else is treated as a
+    name and looked up, so `--link "BVL Registration"` works as expected.
+    """
+    if re.fullmatch(r"[a-z]{20}", value):
+        return value
+
+    matches = [p for p in client.list_projects() if p.get("name") == value]
+    if not matches:
+        matches = [p for p in client.list_projects()
+                   if value.lower() in str(p.get("name", "")).lower()]
+    if not matches:
+        fail(f"No project named '{value}'. Run --list to see what exists.")
+    if len(matches) > 1:
+        names = "\n       ".join(f"{p['name']} (ref={p['id']})" for p in matches)
+        fail(f"'{value}' matches more than one project — pass the ref instead:\n       {names}")
+
+    info(f"resolved '{value}' to ref {matches[0]['id']}")
+    return matches[0]["id"]
+
+
 def wait_until_ready(client: Supabase, ref: str) -> None:
     """Poll the project until Supabase reports its database is healthy."""
     step(f"Waiting for the database to finish provisioning (up to {PROVISION_TIMEOUT // 60} min)")
     deadline = time.monotonic() + PROVISION_TIMEOUT
     last_status = ""
     while time.monotonic() < deadline:
-        status = client.get_project(ref).get("status", "UNKNOWN")
+        details = client.get_project(ref, soft=True) or client.find_project(ref)
+        if details is None:
+            info("Cannot read project status with this token — waiting 90s instead.")
+            time.sleep(90)
+            return
+        status = details.get("status", "UNKNOWN")
         if status != last_status:
             info(f"status: {status}")
             last_status = status
@@ -250,24 +357,16 @@ def pick_secret_key(keys: list[dict]) -> str | None:
 
 
 def write_env_file(project_ref: str, secret_key: str) -> None:
-    """Write .env, preserving any Kobo values already filled in."""
-    existing: dict[str, str] = {}
-    if ENV_FILE.exists():
-        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
-            if "=" in line and not line.strip().startswith("#"):
-                k, _, v = line.partition("=")
-                existing[k.strip()] = v.strip()
+    """Write .env, preserving the access token already there."""
+    existing = read_env_file()
 
     content = f"""# Written by setup_supabase.py — do not commit this file.
 SUPABASE_URL=https://{project_ref}.supabase.co
 SUPABASE_SERVICE_KEY={secret_key}
-
-# From KoboToolbox: Account Settings -> Security -> API key,
-# and the a... id in your deployed form's URL.
-KOBO_TOKEN={existing.get('KOBO_TOKEN', '')}
-KOBO_ASSET_UID={existing.get('KOBO_ASSET_UID', '')}
-KOBO_BASE_URL={existing.get('KOBO_BASE_URL', 'https://kf.kobotoolbox.org')}
 """
+    if existing.get("SUPABASE_ACCESS_TOKEN"):
+        content += ("\n# Account-level token for the Management API (setup only).\n"
+                    f"SUPABASE_ACCESS_TOKEN={existing['SUPABASE_ACCESS_TOKEN']}\n")
     ENV_FILE.write_text(content, encoding="utf-8")
     try:
         ENV_FILE.chmod(0o600)
@@ -286,7 +385,8 @@ def main() -> None:
     )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--new", metavar="NAME", help="create a new project with this name")
-    group.add_argument("--link", metavar="REF", help="use an existing project by its reference id")
+    group.add_argument("--link", metavar="REF_OR_NAME",
+                       help="use an existing project, by reference id or by name")
     group.add_argument("--list", action="store_true", help="list organizations and projects, then exit")
     parser.add_argument("--region", default=DEFAULT_REGION, help=f"region for --new (default: {DEFAULT_REGION})")
     args = parser.parse_args()
@@ -326,9 +426,11 @@ def main() -> None:
 
         wait_until_ready(client, project_ref)
     else:
-        project_ref = args.link
+        project_ref = resolve_project_ref(client, args.link)
         step(f"Using existing project {project_ref}")
-        info(f"name: {client.get_project(project_ref).get('name', '?')}")
+        # Cosmetic only — never let it stop the run.
+        details = client.get_project(project_ref, soft=True) or client.find_project(project_ref)
+        info(f"name: {(details or {}).get('name', '(not readable with this token)')}")
 
     # ---- shared path -----------------------------------------------------
     apply_migrations(client, project_ref)
@@ -352,9 +454,8 @@ Done.
   Credentials : .env  (git-ignored)
 
 Next:
-    1. Deploy forms/player_registration.xlsx in KoboToolbox
-  2. Add KOBO_TOKEN and KOBO_ASSET_UID to .env
-    3. uv run bvl-sync --check
+  Put the project URL and its publishable key in pwa/config.js
+  (see pwa/README.md).
 --------------------------------------------------------------------------""")
 
 

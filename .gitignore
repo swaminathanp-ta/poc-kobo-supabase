@@ -1,6 +1,5 @@
 .env
 .db_password
-.sync_state.json
 __pycache__/
 *.egg-info/
 .venv/

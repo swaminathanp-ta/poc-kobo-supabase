@@ -126,6 +126,32 @@ function rebuildDistricts() {
 
 /* ---------------------------------------------------------------- sync */
 
+// players_clean stores one uppercase level string (e.g. "BVL/DISTRICT") and
+// the centre by name. Queued records keep the form's shape, so anything saved
+// offline before this mapping existed still sends correctly.
+const LEVEL_LABELS = {
+  beginner: "BEGINNER", bvl: "BVL", district: "DISTRICT", state: "STATE", india: "NATIONAL",
+};
+
+function toCleanRow(rec) {
+  const centre = state.centres.find((c) => c.centre_code === rec.centre_code);
+  return {
+    source: rec.source,
+    source_id: rec.source_id,
+    player_name: rec.player_name,
+    sex: rec.sex,
+    dob: rec.dob,
+    height_cm: rec.height_cm,
+    joining_date: rec.joining_date,
+    performance_levels: rec.performance_levels.map((l) => LEVEL_LABELS[l] || l.toUpperCase()).join("/"),
+    achievements: rec.achievements,
+    centre_name: rec.centre_name || centre?.centre_name || rec.centre_code,
+    team: rec.team || null,
+    guardian_consent: rec.guardian_consent,
+    submitted_at: rec.submitted_at,
+  };
+}
+
 async function syncPending({ silent = false } = {}) {
   if (state.syncing) return;
   if (!configured()) {
@@ -149,9 +175,9 @@ async function syncPending({ silent = false } = {}) {
   let sent = 0, failed = 0;
 
   for (const rec of waiting) {
-    const { status, error, savedAt, ...row } = rec;
+    const row = toCleanRow(rec);
     try {
-      const resp = await fetch(`${url}/rest/v1/players`, {
+      const resp = await fetch(`${url}/rest/v1/players_clean`, {
         method: "POST",
         headers: {
           apikey: key,
@@ -328,6 +354,8 @@ function collect() {
     achievements: $("achievements").value.trim() || null,
     district: $("district").value || null,
     centre_code: $("centre").value,
+    centre_name: $("centre").value ? $("centre").selectedOptions[0].textContent : "",
+    team: (document.querySelector("input[name=team]:checked") || {}).value || "",
     guardian_consent: $("consent").checked,
     submitted_at: new Date().toISOString(),
   };
@@ -344,6 +372,7 @@ function validate(rec) {
     problems.push(["height", "Height should be between 100 and 220 cm"]);
   if (!rec.district) problems.push(["district", "Choose the district"]);
   if (!rec.centre_code) problems.push(["centre", "Choose the centre"]);
+  if (!rec.team) problems.push(["teamField", "Choose the team"]);
   if (!rec.performance_levels.length) problems.push(["levelField", "Choose at least one level"]);
   if (!rec.guardian_consent) problems.push(["consentField", "Guardian consent is required"]);
   if (rec.joining_date && rec.dob && rec.joining_date < rec.dob)
@@ -371,6 +400,7 @@ function resetForm() {
   const keepDistrict = $("district").value;
   const keepCentre = $("centre").value;
   const keepJoining = $("joining").value;
+  const keepTeam = document.querySelector("input[name=team]:checked");
   $("regForm").reset();
   // An in-charge registers many children from the same centre in one sitting.
   // Keeping these saves a dozen taps per child.
@@ -378,6 +408,7 @@ function resetForm() {
   renderCentres();
   $("centre").value = keepCentre;
   $("joining").value = keepJoining;
+  if (keepTeam) keepTeam.checked = true;
   $("ageHint").textContent = "";
   document.querySelectorAll(".field.invalid").forEach((e) => e.classList.remove("invalid"));
   document.querySelectorAll(".err").forEach((e) => (e.textContent = ""));

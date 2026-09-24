@@ -95,6 +95,7 @@
 
   .choices { display: flex; gap: 8px; flex-wrap: wrap; }
   .choices.two > label { flex: 1 1 0; }
+  .choices.grid { display: grid; grid-template-columns: 1fr 1fr; }
   .choices label {
     position: relative; display: flex; align-items: center; justify-content: center;
     min-height: var(--tap); padding: 8px 14px; border: 1.5px solid var(--border);
@@ -204,6 +205,17 @@
     <div class="field" id="centreField">
       <label class="lab" for="centre">Centre <span class="req">*</span></label>
       <select id="centre" disabled></select>
+      <div class="err"></div>
+    </div>
+
+    <div class="field" id="teamField">
+      <span class="lab">Team <span class="req">*</span></span>
+      <div class="choices grid">
+        <label><input type="radio" name="team" value="u12_boys"><span>Under 12 boys</span></label>
+        <label><input type="radio" name="team" value="u12_girls"><span>Under 12 girls</span></label>
+        <label><input type="radio" name="team" value="u16_boys"><span>Under 16 boys</span></label>
+        <label><input type="radio" name="team" value="u16_girls"><span>Under 16 girls</span></label>
+      </div>
       <div class="err"></div>
     </div>
 

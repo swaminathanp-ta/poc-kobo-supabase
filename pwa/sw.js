@@ -8,7 +8,7 @@
  * app.js, because they must survive far longer than any cache.
  */
 
-const VERSION = "bvl-v1";
+const VERSION = "bvl-v2";
 const SHELL = [
   "./",
   "./index.html",

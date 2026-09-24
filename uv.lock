@@ -5,7 +5,7 @@ requires-python = ">=3.10"
 [[package]]
 name = "bvl-player-registration"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "requests" },
 ]
