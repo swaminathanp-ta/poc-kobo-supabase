@@ -30,11 +30,12 @@ someone bypasses the app entirely.
 
 ## Setup
 
-1. Apply the migration `supabase/migrations/20260902000001_pwa_intake.sql`
-   (adds `source`/`source_id` and the two policies).
+1. Apply the migrations in `supabase/migrations/`. The app writes to
+   `players_clean`; `20260924000002_players_clean_pwa.sql` prepares that table
+   (auto-numbered `sl_no`, `source`/`source_id`, `team`, and the insert-only policy).
 2. Put your project URL and **publishable** key in `pwa/config.js`.
-3. Copy `workflows-to-copy/pages.yml` into `.github/workflows/`, push, and set
-   **Settings → Pages → Source: GitHub Actions**.
+3. Push, and set **Settings → Pages → Source: GitHub Actions**
+   (`.github/workflows/pages.yml` does the deploy).
 
 Your URL will be `https://<user>.github.io/<repo>/`. HTTPS matters — service
 workers, and therefore offline mode and installation, do not work without it.
