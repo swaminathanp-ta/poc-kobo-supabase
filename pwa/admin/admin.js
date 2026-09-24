@@ -10,7 +10,7 @@ const TEAMS = [
   ["u12_boys", "Under 12 boys"], ["u12_girls", "Under 12 girls"],
   ["u16_boys", "Under 16 boys"], ["u16_girls", "Under 16 girls"],
 ];
-const TEAM_LABEL = Object.fromEntries(TEAMS);
+const TEAM_LABEL = { ...Object.fromEntries(TEAMS), above16: "Above 16", none: "No team" };
 const LEVELS = ["BEGINNER", "BVL", "DISTRICT", "STATE", "NATIONAL"];
 const LEVEL_LABEL = { BEGINNER: "Beginner", BVL: "BVL", DISTRICT: "District", STATE: "State", NATIONAL: "National" };
 const PAGE = 50;
@@ -136,14 +136,18 @@ async function load() {
     state.centres = centres;
     state.players = players.map((p) => {
       const c = byKey.get(centreKey(p.centre_name));
+      const age = ageFrom(p.dob);
       return {
         ...p,
         sex: String(p.sex || "").trim().toUpperCase(),
         levels: String(p.performance_levels || "").split("/").map((s) => s.trim().toUpperCase()).filter(Boolean),
-        age: ageFrom(p.dob),
+        age,
         centre: c ? c.centre_name : String(p.centre_name || "").trim() || "Unknown centre",
         district: c ? c.district : "Centre not in registry",
         team: p.team || "",
+        // Display-only grouping. The database stores no team for these; an
+        // empty team under 16 means sex or date of birth is missing.
+        group: p.team || (age !== null && age >= 16 ? "above16" : "none"),
       };
     });
     buildFilters();
@@ -172,7 +176,8 @@ function buildFilters() {
   $("fDistrict").value = districts.includes(keep) ? keep : "";
   $("fTeam").innerHTML = '<option value="">All teams</option>' +
     TEAMS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("") +
-    '<option value="none">No team (16 and over)</option>';
+    '<option value="above16">Above 16</option>' +
+    (state.players.some((p) => p.group === "none") ? '<option value="none">No team</option>' : "");
   buildCentreFilter();
 }
 
@@ -191,7 +196,7 @@ function apply() {
   const d = $("fDistrict").value, c = $("fCentre").value, s = $("fSex").value, t = $("fTeam").value;
   state.filtered = state.players.filter((p) =>
     (!d || p.district === d) && (!c || p.centre === c) && (!s || p.sex === s) &&
-    (!t || (t === "none" ? !p.team : p.team === t)));
+    (!t || p.group === t));
   state.page = 0;
   const all = state.players.length, n = state.filtered.length;
   $("fCount").textContent = n === all ? `${fmt(all)} players` : `${fmt(n)} of ${fmt(all)} players`;
@@ -302,7 +307,9 @@ function legend(series) {
 
 function renderTeam(P) {
   const rows = TEAMS.map(([v, l]) => [l, P.filter((p) => p.team === v).length]);
-  rows.push(["No team (16 and over)", P.filter((p) => !p.team).length, true]);
+  rows.push(["Above 16", P.filter((p) => p.group === "above16").length, true]);
+  const none = P.filter((p) => p.group === "none").length;
+  if (none) rows.push(["No team", none, true]);
   card("cardTeam", "Players by team", "Team recorded at registration, or worked out from age and sex",
     (body) => hbars(body, rows), rows.map((r) => r.slice(0, 2)), ["Team", "Players"]);
 }
@@ -502,7 +509,7 @@ const hideTip = () => $("tip").classList.remove("show");
 
 const PLAYER_COLS = [
   ["sl_no", "#", "num"], ["player_name", "Name"], ["sex", "Sex"], ["age", "Age", "num"],
-  ["team", "Team"], ["centre", "Centre"], ["district", "District"], ["performance_levels", "Level"],
+  ["group", "Team"], ["centre", "Centre"], ["district", "District"], ["performance_levels", "Level"],
   ["joining_date", "Joined"], ["source", "Source"],
 ];
 
@@ -532,7 +539,7 @@ function renderPlayers() {
       <td>${esc(p.player_name)}</td>
       <td>${p.sex === "M" ? "Boy" : p.sex === "F" ? "Girl" : esc(p.sex)}</td>
       <td class="num">${p.age ?? ""}</td>
-      <td>${p.team ? `<span class="pill">${esc(TEAM_LABEL[p.team] || p.team)}</span>` : ""}</td>
+      <td><span class="pill">${esc(TEAM_LABEL[p.group] || p.group)}</span></td>
       <td>${esc(p.centre)}</td>
       <td>${esc(p.district)}</td>
       <td>${esc(p.levels.map((l) => LEVEL_LABEL[l] || l).join(", "))}</td>
